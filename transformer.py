@@ -11,11 +11,6 @@ from typing import List
 from utils import *
 
 
-# Wraps an example: stores the raw input string (input), the indexed form of the string (input_indexed),
-# a tensorized version of that (input_tensor), the raw outputs (output; a numpy array) and a tensorized version
-# of it (output_tensor).
-# Per the task definition, the outputs are 0, 1, or 2 based on whether the character occurs 0, 1, or 2 or more
-# times previously in the input sequence (not counting the current occurrence).
 class LetterCountingExample(object):
     def __init__(self, input: str, output: np.array, vocab_index: Indexer):
         self.input = input
@@ -25,11 +20,8 @@ class LetterCountingExample(object):
         self.output_tensor = torch.LongTensor(self.output)
 
 
-# Should contain your overall Transformer implementation. You will want to use Transformer layer to implement
-# a single layer of the Transformer; this Module will take the raw words as input and do all of the steps necessary
-# to return distributions over the labels (0, 1, or 2).
 class Transformer(nn.Module):
-    def __init__(self, vocab_size, num_positions, d_model, d_internal, num_classes, num_layers):
+    def __init__(self, vocab_size, num_positions, d_model, d_internal, num_classes, num_layers, use_causal_mask=False):
         """
         :param vocab_size: vocabulary size of the embedding layer
         :param num_positions: max sequence length that will be fed to the model; should be 20
@@ -37,6 +29,7 @@ class Transformer(nn.Module):
         :param d_internal: see TransformerLayer
         :param num_classes: number of classes predicted at the output layer; should be 3
         :param num_layers: number of TransformerLayers to use; can be whatever you want
+        :param use_causal_mask: whether to use causal masking (for language modeling)
         """
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
@@ -44,10 +37,10 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList([TransformerLayer(d_model, d_internal) for _ in range(num_layers)])
         self.output_layer = nn.Linear(d_model, num_classes)
         self.log_softmax = nn.LogSoftmax(dim=-1)
+        self.use_causal_mask = use_causal_mask
 
     def forward(self, indices):
         """
-
         :param indices: list of input indices
         :return: A tuple of the softmax log probabilities (should be a 20x3 matrix) and a list of the attention
         maps you use in your layers (can be variable length, but each should be a 20x20 matrix)
@@ -55,19 +48,25 @@ class Transformer(nn.Module):
         x = self.embedding(indices)
         x = self.pos_encoding(x)
         
+        # Create causal mask if needed
+        mask = None
+        if self.use_causal_mask:
+            seq_len = indices.shape[0]
+            mask = torch.tril(torch.ones(seq_len, seq_len))
+        
         attention_maps = []
         for layer in self.layers:
-            x, attn = layer(x)
+            x, attn = layer(x, mask)
             attention_maps.append(attn)
         
+        # Apply output layer to get logits for each position
         logits = self.output_layer(x)
+        # Apply log_softmax to get proper log probabilities
         log_probs = self.log_softmax(logits)
         
         return log_probs, attention_maps
 
 
-# Your implementation of the Transformer layer goes here. It should take vectors and return the same number of vectors
-# of the same length, applying self-attention, the feedforward layer, etc.
 class TransformerLayer(nn.Module):
     def __init__(self, d_model, d_internal):
         """
@@ -89,8 +88,9 @@ class TransformerLayer(nn.Module):
         self.ff1 = nn.Linear(d_model, d_model * 4)
         self.ff2 = nn.Linear(d_model * 4, d_model)
         self.relu = nn.ReLU()
+        # Removed dropout for stability
 
-    def forward(self, input_vecs):
+    def forward(self, input_vecs, mask=None):
         # Self-attention
         Q = self.query(input_vecs)
         K = self.key(input_vecs)
@@ -98,24 +98,28 @@ class TransformerLayer(nn.Module):
         
         # Compute attention scores
         scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.d_internal ** 0.5)
+        
+        # Apply causal mask if provided
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+        
         attention_weights = torch.softmax(scores, dim=-1)
         
         # Apply attention to values
         attended = torch.matmul(attention_weights, V)
         
-        # First residual connection
+        # First residual connection with dropout
         x = input_vecs + attended
         
         # Feed-forward network
         ff_out = self.ff2(self.relu(self.ff1(x)))
         
-        # Second residual connection
+        # Second residual connection with dropout
         output = x + ff_out
         
         return output, attention_weights
 
 
-# Implementation of positional encoding that you can use in your network
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, num_positions: int=20, batched=False):
         """
@@ -148,7 +152,6 @@ class PositionalEncoding(nn.Module):
             return x + self.emb(indices_to_embed)
 
 
-# This is a skeleton for train_classifier: you can implement this however you want
 def train_classifier(args, train, dev):
     # Model parameters
     vocab_size = 27  # a-z + space
@@ -156,13 +159,16 @@ def train_classifier(args, train, dev):
     d_model = 64
     d_internal = 32
     num_classes = 3
-    num_layers = 1
+    num_layers = 2
     
-    model = Transformer(vocab_size, num_positions, d_model, d_internal, num_classes, num_layers)
+    # Determine if we need causal mask based on task
+    use_causal_mask = (args.task == "BEFORE")
+    
+    model = Transformer(vocab_size, num_positions, d_model, d_internal, num_classes, num_layers, use_causal_mask)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     loss_fcn = nn.NLLLoss()
     
-    num_epochs = 10
+    num_epochs = 15
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0

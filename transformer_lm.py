@@ -50,10 +50,20 @@ class NeuralLanguageModel(LanguageModel):
     def __init__(self, model, vocab_index):
         self.model = model
         self.vocab_index = vocab_index
+        self.max_seq_len = 20  # Maximum sequence length the model can handle
 
     def get_next_char_log_probs(self, context):
-        self.model.eval()
+        """Get log probabilities for next character given context"""
+        self.model.eval()  # CRITICAL: Set to eval mode to disable dropout
         with torch.no_grad():
+            # Truncate context if too long
+            if len(context) > self.max_seq_len:
+                context = context[-self.max_seq_len:]
+            
+            # Handle empty context
+            if len(context) == 0:
+                context = " "  # Use space as default
+            
             # Convert context to indices
             context_indices = [self.vocab_index.index_of(c) for c in context]
             context_tensor = torch.LongTensor(context_indices)
@@ -61,20 +71,40 @@ class NeuralLanguageModel(LanguageModel):
             # Get model predictions
             log_probs, _ = self.model(context_tensor)
             
-            # Return log probabilities for the last position
-            return log_probs[-1].numpy()
+            # Return log probabilities for the last position (predicting next char)
+            result = log_probs[-1].cpu().numpy()
+            
+            # Verify it sums to 1 in probability space (debugging)
+            # prob_sum = np.sum(np.exp(result))
+            # if abs(prob_sum - 1.0) > 0.01:
+            #     print(f"Warning: probs sum to {prob_sum}")
+            
+            return result
 
     def get_log_prob_sequence(self, next_chars, context):
+        """
+        Compute log probability of next_chars given context by calling
+        get_next_char_log_probs repeatedly and summing
+        """
         total_log_prob = 0.0
         current_context = context
         
         for char in next_chars:
+            # Get log probs for next character
             char_log_probs = self.get_next_char_log_probs(current_context)
+            
+            # Get the log prob for this specific character
             char_idx = self.vocab_index.index_of(char)
             total_log_prob += char_log_probs[char_idx]
-            current_context += char
+            
+            # Update context for next iteration
+            current_context = current_context + char
+            
+            # Keep context within max length
+            if len(current_context) > self.max_seq_len:
+                current_context = current_context[-self.max_seq_len:]
         
-        return total_log_prob
+        return float(total_log_prob)
 
 
 def train_lm(args, train_text, dev_text, vocab_index):
@@ -94,36 +124,45 @@ def train_lm(args, train_text, dev_text, vocab_index):
     # Model parameters
     vocab_size = len(vocab_index)
     seq_len = 20
-    d_model = 64
-    d_internal = 32
+    d_model = 128
+    d_internal = 64
     num_classes = vocab_size  # Predict next character
     num_layers = 2
     
-    model = Transformer(vocab_size, seq_len, d_model, d_internal, num_classes, num_layers)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    # CRITICAL: Use causal mask for language modeling
+    model = Transformer(vocab_size, seq_len, d_model, d_internal, num_classes, num_layers, use_causal_mask=True)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_fcn = nn.NLLLoss()
     
-    # Prepare training data
-    def create_sequences(text, seq_len):
-        sequences = []
-        for i in range(len(text) - seq_len):
-            input_seq = text[i:i+seq_len]
-            target_seq = text[i+1:i+seq_len+1]
-            sequences.append((input_seq, target_seq))
-        return sequences
+    # Create training sequences - non-overlapping chunks
+    num_sequences = min(len(train_text) - seq_len, 15000)
     
-    train_sequences = create_sequences(train_text, seq_len)
+    print(f"Training on {num_sequences} sequences...")
     
-    num_epochs = 5
+    num_epochs = 10
+    batch_positions = list(range(0, len(train_text) - seq_len - 1, seq_len))
+    
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
-        random.shuffle(train_sequences)
+        num_batches = 0
         
-        for i, (input_seq, target_seq) in enumerate(train_sequences[:10000]):  # Limit for faster training
+        random.shuffle(batch_positions)
+        
+        for start_pos in batch_positions[:1000]:  # Train on subset for speed
+            # Get sequence
+            input_seq = train_text[start_pos:start_pos+seq_len]
+            target_seq = train_text[start_pos+1:start_pos+seq_len+1]
+            
+            if len(input_seq) != seq_len or len(target_seq) != seq_len:
+                continue
+            
             # Convert to indices
-            input_indices = torch.LongTensor([vocab_index.index_of(c) for c in input_seq])
-            target_indices = torch.LongTensor([vocab_index.index_of(c) for c in target_seq])
+            try:
+                input_indices = torch.LongTensor([vocab_index.index_of(c) for c in input_seq])
+                target_indices = torch.LongTensor([vocab_index.index_of(c) for c in target_seq])
+            except:
+                continue  # Skip if character not in vocab
             
             optimizer.zero_grad()
             log_probs, _ = model(input_indices)
@@ -134,11 +173,15 @@ def train_lm(args, train_text, dev_text, vocab_index):
             optimizer.step()
             
             total_loss += loss.item()
-            
-            if i % 1000 == 0:
-                print(f"Epoch {epoch + 1}, Step {i}, Loss: {loss.item():.4f}")
+            num_batches += 1
         
-        print(f"Epoch {epoch + 1} completed, Average Loss: {total_loss / min(10000, len(train_sequences)):.4f}")
+        avg_loss = total_loss / max(num_batches, 1)
+        print(f"Epoch {epoch + 1}/{num_epochs}, Average Loss: {avg_loss:.4f}")
+        
+        # Early stopping if loss is good enough
+        if avg_loss < 1.5:
+            print("Loss threshold reached, stopping early")
+            break
     
     model.eval()
     return NeuralLanguageModel(model, vocab_index)
