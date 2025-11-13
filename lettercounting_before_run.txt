@@ -1,0 +1,40 @@
+﻿Namespace(task='BEFORE', train='data/lettercounting-train.txt', dev='data/lettercounting-dev.txt', output_bundle_path='classifier-output.json')
+['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ' ']
+10000 lines read in
+1000 lines read in
+Epoch 1, Loss: 0.2087
+Epoch 2, Loss: 0.0477
+Epoch 3, Loss: 0.0488
+Epoch 4, Loss: 0.0453
+Epoch 5, Loss: 0.0570
+Epoch 6, Loss: 0.0705
+Epoch 7, Loss: 0.0634
+Epoch 8, Loss: 0.0791
+Epoch 9, Loss: 0.0919
+Epoch 10, Loss: 0.1283
+Epoch 11, Loss: 0.1066
+Epoch 12, Loss: 0.1185
+Epoch 13, Loss: 0.1570
+Epoch 14, Loss: 0.1833
+Epoch 15, Loss: 0.1678
+INPUT 0: heir average albedo 
+GOLD 0: array([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 1, 2, 0, 0, 2, 0, 0, 2])
+PRED 0: array([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 1, 2, 0, 0, 2, 0, 0, 2])
+INPUT 1: ed by rank and file 
+GOLD 1: array([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 1, 1, 1, 2, 0, 0, 0, 1, 2])
+PRED 1: array([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0, 0, 1, 2])
+INPUT 2: s can also extend in
+GOLD 2: array([0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 2, 0, 0, 0, 1, 1, 0, 2, 0, 2])
+PRED 2: array([0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 2, 0, 2])
+INPUT 3: erages between nine 
+GOLD 3: array([0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 2, 2, 0, 1, 1, 0, 2, 2, 2])
+PRED 3: array([0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 2, 2, 0, 1, 1, 0, 1, 2, 2])
+INPUT 4:  that civilization n
+GOLD 4: array([0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 2, 0, 1, 2, 2, 0, 0, 2, 1])
+PRED 4: array([0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 2, 0, 1, 2, 2, 0, 0, 2, 1])
+Accuracy: 96 / 100 = 0.960000
+Training accuracy (100 exs):
+Accuracy: 1882 / 2000 = 0.941000
+Dev accuracy (whole set):
+Decoding on a large number of examples (1000); not printing or plotting
+Accuracy: 18638 / 20000 = 0.931900
