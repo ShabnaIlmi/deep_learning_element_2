@@ -237,7 +237,7 @@ def train_classifier(args, train, dev):
     loss_fcn = nn.NLLLoss()  # Negative log-likelihood for classification
     
     # Training loop
-    num_epochs = 20  # Increased training duration
+    num_epochs = 10  # Increased training duration
     for epoch in range(num_epochs):
         model.train()  # Set to training mode
         total_loss = 0.0
