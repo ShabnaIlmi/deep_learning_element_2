@@ -125,19 +125,20 @@ def train_lm(args, train_text, dev_text, vocab_index):
     vocab_size = len(vocab_index)
     seq_len = 20
     d_model = 128
-    d_internal = 64
+    d_internal = 128  # Must be divisible by num_heads (128 / 4 = 32)
     num_classes = vocab_size  # Predict next character
     num_layers = 2
+    num_heads = 4  # Multi-head attention for better LM performance
     
     # CRITICAL: Use causal mask for language modeling
-    model = Transformer(vocab_size, seq_len, d_model, d_internal, num_classes, num_layers, use_causal_mask=True)
+    model = Transformer(vocab_size, seq_len, d_model, d_internal, num_classes, num_layers, use_causal_mask=True, num_heads=num_heads)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_fcn = nn.NLLLoss()
     
     # Create training sequences - non-overlapping chunks
     num_sequences = min(len(train_text) - seq_len, 15000)
     
-    print(f"Training on {num_sequences} sequences...")
+    print(f"Training on {num_sequences} sequences with {num_heads}-head attention...")
     
     num_epochs = 10
     batch_positions = list(range(0, len(train_text) - seq_len - 1, seq_len))
