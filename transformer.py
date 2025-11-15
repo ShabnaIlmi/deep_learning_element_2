@@ -223,8 +223,8 @@ def train_classifier(args, train, dev):
     # Model hyperparameters (tuned for better performance)
     vocab_size = 27  # a-z + space
     num_positions = 20  # Maximum sequence length
-    d_model = 128  # Hidden dimension (increased from 64)
-    d_internal = 64  # Attention dimension (increased from 32)
+    d_model = 64  # Hidden dimension (reduced for speed)
+    d_internal = 32  # Attention dimension (reduced for speed)
     num_classes = 3  # Number of output classes
     num_layers = 2  # Number of transformer layers
     
@@ -233,7 +233,7 @@ def train_classifier(args, train, dev):
     
     # Initializing the model and training components
     model = Transformer(vocab_size, num_positions, d_model, d_internal, num_classes, num_layers, use_causal_mask)
-    optimizer = optim.Adam(model.parameters(), lr=5e-4)  # Conservative learning rate
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)  # Higher learning rate for faster convergence
     loss_fcn = nn.NLLLoss()  # Negative log-likelihood for classification
     
     # Training loop
