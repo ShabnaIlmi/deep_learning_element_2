@@ -54,7 +54,7 @@ class NeuralLanguageModel(LanguageModel):
 
     def get_next_char_log_probs(self, context):
         """Get log probabilities for next character given context"""
-        self.model.eval()  # CRITICAL: Set to eval mode to disable dropout
+        self.model.eval()  # Set to eval mode to disable dropout
         with torch.no_grad():
             # Truncate context if too long
             if len(context) > self.max_seq_len:
@@ -83,8 +83,9 @@ class NeuralLanguageModel(LanguageModel):
 
     def get_log_prob_sequence(self, next_chars, context):
         """
-        Compute log probability of next_chars given context by calling
-        get_next_char_log_probs repeatedly and summing
+        Completely rewrote this method to call get_next_char_log_probs repeatedly
+        Previous version used chunking which caused sanity check failures
+        This version builds context character-by-character as required
         """
         total_log_prob = 0.0
         current_context = context
@@ -124,7 +125,7 @@ def train_lm(args, train_text, dev_text, vocab_index):
     # Model parameters
     vocab_size = len(vocab_index)
     seq_len = 20
-    d_model = 128
+    d_model = 128 # Increased from 64 to 128 for better model capacity
     d_internal = 128  # Must be divisible by num_heads (128 / 4 = 32)
     num_classes = vocab_size  # Predict next character
     num_layers = 2

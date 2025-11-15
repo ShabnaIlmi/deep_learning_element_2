@@ -60,6 +60,7 @@ class Transformer(nn.Module):
         self.output_layer = nn.Linear(d_model, num_classes)
         # Log softmax for probability output
         self.log_softmax = nn.LogSoftmax(dim=-1)
+        # Added flag to control causal masking (needed for Part 2 - Language Model)
         self.use_causal_mask = use_causal_mask
 
     def forward(self, indices):
@@ -75,14 +76,17 @@ class Transformer(nn.Module):
         x = self.pos_encoding(x)
         
         # Creating causal mask if needed 
+        # Create causal mask for language modeling
+        # Prevents tokens from attending to future positions
         mask = None
         if self.use_causal_mask:
             seq_len = indices.shape[0]
-            mask = torch.tril(torch.ones(seq_len, seq_len))  # Lower triangular mask
+            mask = torch.tril(torch.ones(seq_len, seq_len))  # torch.tril creates lower triangular matrix so position i can only see positions 0 to i
         
         # Passing through transformer layers, collecting attention maps
         attention_maps = []
         for layer in self.layers:
+            # Pass mask to layer (was: x, attn = layer(x))
             x, attn = layer(x, mask)
             attention_maps.append(attn)
         
@@ -152,6 +156,8 @@ class TransformerLayer(nn.Module):
         # Computing scaled dot-product attention scores
         scores = torch.matmul(Q, K.transpose(1, 2)) / (self.head_dim ** 0.5)  
         
+        # Apply causal mask to prevent attending to future positions
+        # Sets future positions to -inf so they become 0 after softmax
         if mask is not None:
             scores = scores.masked_fill(mask == 0, float('-inf'))
         
