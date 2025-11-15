@@ -126,7 +126,7 @@ def train_lm(args, train_text, dev_text, vocab_index):
     vocab_size = len(vocab_index)
     seq_len = 20
     d_model = 128 # Increased from 64 to 128 for better model capacity
-    d_internal = 128  # Must be divisible by num_heads (128 / 4 = 32)
+    d_internal = 64  # Must be divisible by num_heads (128 / 4 = 32)
     num_classes = vocab_size  # Predict next character
     num_layers = 2
     num_heads = 4  # Multi-head attention for better LM performance
@@ -141,7 +141,7 @@ def train_lm(args, train_text, dev_text, vocab_index):
     
     print(f"Training on {num_sequences} sequences with {num_heads}-head attention...")
     
-    num_epochs = 10
+    num_epochs = 15
     batch_positions = list(range(0, len(train_text) - seq_len - 1, seq_len))
     
     for epoch in range(num_epochs):
