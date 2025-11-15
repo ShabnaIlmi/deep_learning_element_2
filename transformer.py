@@ -242,8 +242,13 @@ def train_classifier(args, train, dev):
     optimizer = optim.Adam(model.parameters(), lr=1e-3)  # Higher learning rate for faster convergence
     loss_fcn = nn.NLLLoss()  # Negative log-likelihood for classification
     
+    # Early stopping parameters
+    best_dev_loss = float('inf')
+    patience = 3
+    patience_counter = 0
+    
     # Training loop
-    num_epochs = 10  # Increased training duration
+    num_epochs = 10
     for epoch in range(num_epochs):
         model.train()  # Set to training mode
         total_loss = 0.0
@@ -266,9 +271,29 @@ def train_classifier(args, train, dev):
             
             total_loss += loss.item()
         
+        # Evaluate on dev set
+        model.eval()
+        dev_loss = 0.0
+        with torch.no_grad():
+            for example in dev[:100]:  # Use subset for speed
+                log_probs, _ = model(example.input_tensor)
+                loss = loss_fcn(log_probs, example.output_tensor)
+                dev_loss += loss.item()
+        dev_loss /= min(len(dev), 100)
+        
         # Report epoch progress
         avg_loss = total_loss / len(train)
-        print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {avg_loss:.4f}")
+        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_loss:.4f}, Dev Loss: {dev_loss:.4f}")
+        
+        # Early stopping check
+        if dev_loss < best_dev_loss:
+            best_dev_loss = dev_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping at epoch {epoch + 1}")
+                break
     
     model.eval()  
     return model
