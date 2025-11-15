@@ -126,7 +126,7 @@ def train_lm(args, train_text, dev_text, vocab_index):
     vocab_size = len(vocab_index)
     seq_len = 20
     d_model = 128 # Increased from 64 to 128 for better model capacity
-    d_internal = 64  # Must be divisible by num_heads (128 / 4 = 32)
+    d_internal = 64  # Must be divisible by num_heads (64 / 4 = 16)
     num_classes = vocab_size  # Predict next character
     num_layers = 2
     num_heads = 4  # Multi-head attention for better LM performance
